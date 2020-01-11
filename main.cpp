@@ -41,7 +41,7 @@ private:
     int counter = 0;
 };
 
-struct subscriber {
+struct executor {
     void operator()(){
         while(1) {
             std::unique_lock<std::mutex> lock(mtx);
@@ -77,6 +77,10 @@ struct subscriber {
         cv.notify_all();
     }
 
+    void flag_true(){
+        flag = true;
+    }
+
     std::vector<std::shared_ptr<processor>> processors;
     std::shared_ptr<std::vector<std::shared_ptr<fig>>> buffer;
     std::mutex mtx;
@@ -93,10 +97,11 @@ int main(int argc,char* argv[]) {
         return 1;
     }
     int buffer_size = std::stoi(argv[1]);
-    std::shared_ptr<std::vector<std::shared_ptr<fig>>> buffer = std::make_shared<std::vector<std::shared_ptr<fig>>>();
+    std::shared_ptr<std::vector<std::shared_ptr<fig>>> buffer;
+    buffer = std::make_shared<std::vector<std::shared_ptr<fig>>>();
     buffer -> reserve(buffer_size);
     factory fact;
-    subscriber sub;
+    executor sub;
     sub.processors.push_back(std::make_shared<stream_processor>());
     sub.processors.push_back(std::make_shared<file_processor>());
     std::thread sthread(std::ref(sub));
@@ -117,13 +122,14 @@ int main(int argc,char* argv[]) {
                 sub.cv.wait(mut, [&](){ return sub.empty_buf();});
                 buffer -> clear();
             }
-        } else if (comm == "exit")  {
+        } else if (comm == "exit"){
             break;
         } else {
             std::cout << "unknown command\n";
         }
     }
-    sub.flag = true;
+
+    sub.flag_true();
     sub.notify_all();
     sthread.join();
 
